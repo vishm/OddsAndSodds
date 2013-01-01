@@ -1,4 +1,6 @@
 OddsAndSodds
 ============
 
-Somewhere to dump out stuff too.
+Collection of useful scripts 
+
+	
