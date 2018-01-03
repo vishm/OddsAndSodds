@@ -23,8 +23,7 @@ function Get-Batchfile ($file, $arg) {
     }
 }
 
-
-function Set-VsVarsXX($version = "8.0", $platform= "x86")
+function Get-VSTools($version, $platform)
 {
     # default check key unique location for Win x64 (32bit emulation)
     $key = "HKLM:SOFTWARE\Wow6432Node\Microsoft\VisualStudio\" + $version
@@ -33,19 +32,58 @@ function Set-VsVarsXX($version = "8.0", $platform= "x86")
         $key = "HKLM:SOFTWARE\Microsoft\VisualStudio\" + $version  
     }
 
-
+    $VsToolsDir = ""
     $VsKey = get-ItemProperty $key
-    $VsInstallPath = [System.IO.Path]::GetDirectoryName($VsKey.InstallDir)
-    $VsToolsDir = [System.IO.Path]::GetDirectoryName($VsInstallPath)
-    $VsToolsDir = [System.IO.Path]::Combine($VsToolsDir, "..\VC")
-    $BatchFile = [System.IO.Path]::Combine($VsToolsDir, "vcvarsall.bat")
-    Get-Batchfile $BatchFile $platform
-    [System.Console]::Title = "Visual Studio " + $version + " " + $platform + " Windows Powershell"
+    if ( $VsKey.PSObject.Properties.Match('InstallDir').Count) 
+    {
+        $VsInstallPath = [System.IO.Path]::GetDirectoryName($VsKey.InstallDir)
+        $VsToolsDir = [System.IO.Path]::GetDirectoryName($VsInstallPath)
+        $VsToolsDir = [System.IO.Path]::Combine($VsToolsDir, "..\VC")
+    }     
+    else 
+    {
+        if ( $versionNumeric -ge 15.0 ) # VS2017 and greater > 
+        {       
+            $key = "HKLM:SOFTWARE\WOW6432Node\Microsoft\VisualStudio\SxS\VS7"
+            if ( (Test-Path($key)) -eq $true)
+            {
+                $VsKey = get-ItemProperty $key
+                $VsToolsDir = [System.IO.Path]::Combine($VsKey.$version, "VC\Auxiliary\Build");
+            }
+        }
+        
+    }
+
+    return $VsToolsDir
+}
+
+
+function Set-VsVarsXX($version = "8.0", $platform= "x86")
+{
+    $VsToolsDir = Get-VSTools $version $platform
+
+    if ( $VsToolsDir -ne "" )
+    {
+        $BatchFile = [System.IO.Path]::Combine($VsToolsDir, "vcvarsall.bat")
+        Get-Batchfile $BatchFile $platform
+        [System.Console]::Title = "Visual Studio " + $version + " " + $platform + " Windows Powershell"
+    }
+    else
+    {
+        Write-Host "Unable to locate VSToolsDir for version:" $version "platform:" $platform
+    }    
  }
 
 function Set-VsVars32($version = "8.0")
-{
-    Set-VsVarsXX $version "x86"
+{    
+    $versionNumeric = [System.Convert]::ToDouble($version)    
+    if ( $versionNumeric -le 15.0 )
+    {
+        Set-VsVarsXX $version "x86"
+    }
+    else {
+        Set-VsVarsXX $version "x86"
+    }
 }
 
 function Set-VsVars64($version = "8.0")
